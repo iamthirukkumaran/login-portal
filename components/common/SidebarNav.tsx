@@ -10,13 +10,8 @@ export default function SidebarNav() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
-    // Force page refresh to clear all client-side state
-    router.refresh();
-    // Small delay to ensure logout completes
-    setTimeout(() => {
-      router.push("/login");
-    }, 100);
+    logout();
+    router.push("/login");
   };
 
   return (

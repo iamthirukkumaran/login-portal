@@ -20,7 +20,6 @@ export default function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // Ensure cookie is set
       });
 
       const data = await res.json();
@@ -31,9 +30,13 @@ export default function LoginForm() {
         return;
       }
 
-      // Success → Redirect to dashboard immediately
-      // The AuthContext will fetch the new user data on mount
-      router.push("/dashboard");
+      // Success → Redirect to dashboard
+
+
+router.push("/dashboard/students");
+useEffect(() => {
+  router.refresh();
+}, []);
 
     } catch (err: any) {
       setError("Something went wrong");
