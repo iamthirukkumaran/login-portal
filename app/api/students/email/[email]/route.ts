@@ -1,14 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { dbconnect } from "@/lib/db/dbconnect";
 import StudentModel from "@/lib/model/StudentModel";
 
-export async function GET(req: Request, { params }: any) {
+interface RouteParams {
+  params: Promise<{
+    email: string;
+  }>;
+}
+
+export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     await dbconnect();
-    const resolvedParams = await params;
-    const email = decodeURIComponent(resolvedParams.email);
+    const { email } = await params;
+    const decodedEmail = decodeURIComponent(email);
 
-    const student = await StudentModel.findOne({ email });
+    const student = await StudentModel.findOne({ email: decodedEmail });
 
     if (!student) {
       return NextResponse.json(
