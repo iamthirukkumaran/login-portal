@@ -25,7 +25,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
       <h1 className="text-4xl font-bold mb-6">Welcome to MyApp</h1>
-      <p className="mb-8 text-lg text-gray-700">Please login or register to continue</p>
+      <p className="mb-8 text-lg text-gray-700">Please login  to continue</p>
       <div className="flex gap-4">
         <button
           onClick={() => router.push("/login")}
@@ -33,12 +33,12 @@ export default function HomePage() {
         >
           Login
         </button>
-        <button
+        {/* <button
           onClick={() => router.push("/register")}
           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition cursor-pointer"
         >
           Register
-        </button>
+        </button> */}
       </div>
     </div>
   );
