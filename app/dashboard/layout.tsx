@@ -13,13 +13,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
 
-      {/* Sidebar - Hidden on mobile, visible on desktop */}
+      {/* Sidebar - Fixed on desktop, overlay on mobile */}
       <div className={`${
         isMobile 
           ? `fixed inset-y-0 left-0 z-50 w-64 bg-white border-r shadow-lg transform transition-transform duration-300 ${
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             }` 
-          : 'w-64 bg-white border-r shadow-sm'
+          : 'fixed left-0 top-0 h-screen w-64 bg-white border-r shadow-sm overflow-y-auto'
       }`}>
         <SidebarNav />
       </div>
@@ -32,8 +32,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col w-full">
+      {/* Main Content - Offset on desktop for fixed sidebar */}
+      <div className={`flex-1 flex flex-col w-full ${!isMobile && 'md:ml-64'}`}>
         
         {/* Top Bar */}
         <header className="w-full bg-white shadow-sm px-3 md:px-6 py-3 md:py-4 flex justify-between items-center sticky top-0 z-30">
