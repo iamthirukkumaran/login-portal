@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -91,7 +92,7 @@ interface Student {
   }>;
 }
 
-export default function StudentProfilePage() {
+function StudentProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuth();
@@ -1199,6 +1200,24 @@ export default function StudentProfilePage() {
       discountPercentage={feeInfo.discountPercentage}
     />
     </div>
+  );
+}
+
+// Suspense wrapper for dynamic rendering
+export default function StudentProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="w-10 h-10 border-3 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading profile...</p>
+          </div>
+        </div>
+      }
+    >
+      <StudentProfilePageContent />
+    </Suspense>
   );
 }
 
