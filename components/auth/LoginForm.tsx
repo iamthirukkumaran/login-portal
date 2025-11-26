@@ -31,14 +31,9 @@ export default function LoginForm() {
         return;
       }
 
-      // Success → Force a full refresh and redirect
-      // This clears the old state and fetches new auth data
-      router.refresh();
-      
-      // Small delay to ensure auth context updates
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 100);
+      // Success → Redirect to dashboard immediately
+      // The AuthContext will fetch the new user data on mount
+      router.push("/dashboard");
 
     } catch (err: any) {
       setError("Something went wrong");

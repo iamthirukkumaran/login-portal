@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // Fetch user data on mount and whenever auth state changes
+  // Fetch user data on mount
   useEffect(() => {
     fetchUser();
   }, []);
