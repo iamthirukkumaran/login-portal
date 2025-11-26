@@ -35,6 +35,18 @@ const StudentSchema = new Schema(
 
     // Custom Fee (editable by admin/teacher)
     customFee: { type: Number },
+
+    // Payment tracking
+    totalPaid: { type: Number, default: 0 },
+    paymentHistory: [
+      {
+        amount: { type: Number, required: true },
+        paidAt: { type: Date, required: true },
+        paymentMethod: { type: String, default: "Manual" },
+        remarks: { type: String },
+        recordedBy: { type: String }, // Name of teacher/admin who recorded payment
+      },
+    ],
   },
   { timestamps: true }
 );

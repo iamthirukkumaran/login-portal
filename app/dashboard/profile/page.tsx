@@ -5,7 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+  SheetClose
+} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { 
   ArrowLeft, 
   Edit2, 
@@ -23,10 +33,14 @@ import {
   MapPin,
   Calendar,
   GraduationCap,
-  Shield
+  Shield,
+  CreditCard,
+  History
 } from "lucide-react";
 import { calculateDiscountedFee, formatCurrency } from "@/lib/utils/feeCalculation";
 import { toast } from "sonner";
+import PaymentHistoryModal from "@/components/students/PaymentHistoryModal";
+import PaymentModal from "@/components/students/PaymentModal";
 
 // Subjects configuration - FIXED VERSION
 const semesterSubjects: { [key: number]: string[] } = {
@@ -39,7 +53,6 @@ const semesterSubjects: { [key: number]: string[] } = {
   7: ["Deep Learning","Internet of Things","DevOps","Human Computer Interaction","Open Elective II","Project Phase I"],
   8: ["Cyber Security","BlockChain Technology","Advanced Algorithms","Elective III","Industrial Internship","Project Phase II"],
 };
-
 
 // Get subjects for semester - SIMPLIFIED AND WORKING VERSION
 const getSubjectsForSemester = (semester: number): string[] => {
@@ -68,6 +81,14 @@ interface Student {
   mark12?: number;
   marks?: SemesterMark[];
   customFee?: number;
+  totalPaid?: number;
+  paymentHistory?: Array<{
+    amount: number;
+    paidAt: string;
+    paymentMethod: string;
+    remarks?: string;
+    recordedBy?: string;
+  }>;
 }
 
 export default function StudentProfilePage() {
@@ -91,6 +112,10 @@ export default function StudentProfilePage() {
   const [editingBaseFee, setEditingBaseFee] = useState<string>("");
   const [isEditingFeesSaving, setIsEditingFeesSaving] = useState(false);
   
+  // Payment states
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isPaymentHistoryOpen, setIsPaymentHistoryOpen] = useState(false);
+  
   // Semester marks states - inline table mode
   const [activeFormSemester, setActiveFormSemester] = useState<number | null>(null);
   const [formStates, setFormStates] = useState<{
@@ -101,6 +126,9 @@ export default function StudentProfilePage() {
   }>({});
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingRowData, setEditingRowData] = useState<Array<{ subject: string; marks: number }> | null>(null);
+
+  // Slider state for demo purposes (you can integrate this with actual data)
+  const [sliderValue, setSliderValue] = useState([50]);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -184,6 +212,8 @@ export default function StudentProfilePage() {
         gender: editData.gender,
         city: editData.city,
         dob: editData.dob,
+        // Include slider value if you want to save it
+        customSliderValue: sliderValue[0],
       };
       
       const res = await fetch(endpoint, {
@@ -258,6 +288,10 @@ export default function StudentProfilePage() {
   const handleCancelFeeEdit = () => {
     setIsEditingFees(false);
     setEditingBaseFee("");
+  };
+
+  const handlePaymentSuccess = () => {
+    fetchStudentProfile(student?._id || user?.id || "");
   };
 
   const initializeFormForSemester = (semester: number) => {
@@ -835,59 +869,120 @@ export default function StudentProfilePage() {
 
             {/* Fees Information */}
             <Card className="border border-gray-300 bg-white shadow-sm">
-              <CardHeader className="border-b border-gray-200 pb-3 bg-gradient-to-r from-gray-50 to-white flex flex-row justify-between items-center">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <DollarSign className="h-4 w-4 text-gray-700" />
-                  Fees Information
-                </CardTitle>
-                {canEdit && (
-                  <Button
-                    onClick={handleEditFees}
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs border-gray-300 cursor-pointer"
-                  >
-                    <Edit2 className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                )}
+              <CardHeader className="border-b border-gray-200 pb-4 bg-gradient-to-r from-gray-50 to-white">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <DollarSign className="h-4 w-4 text-gray-700" />
+                    Fees Management
+                  </CardTitle>
+                  <div className="flex flex-wrap gap-2">
+                    {canEdit && (
+                      <>
+                        <Button
+                          onClick={handleEditFees}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-gray-300 cursor-pointer whitespace-nowrap"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          onClick={() => setIsPaymentModalOpen(true)}
+                          size="sm"
+                          className="h-7 text-xs bg-green-600 hover:bg-green-700 cursor-pointer whitespace-nowrap"
+                        >
+                          <CreditCard className="h-3 w-3 mr-1" />
+                          Pay
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      onClick={() => setIsPaymentHistoryOpen(true)}
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-gray-300 cursor-pointer whitespace-nowrap"
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Summary
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center py-2 px-2 bg-gray-50 rounded">
+                <div className="space-y-3">
+                  {/* Full Fees (Already includes discount) */}
+                  <div className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded-lg border border-gray-200">
                     <span className="text-gray-700 text-sm font-medium">Full Fees:</span>
-                    <span className="font-bold text-gray-900 text-sm">{formatCurrency(student?.customFee || feeInfo.originalFee)}</span>
+                    <span className="font-bold text-gray-900 text-base">{formatCurrency(student?.customFee || feeInfo.originalFee)}</span>
                   </div>
-                  
-                  {feeInfo.discountPercentage > 0 && (
-                    <>
-                      <div className="flex justify-between items-center py-2 px-2 bg-blue-50 rounded">
-                        <span className="text-blue-700 text-sm font-medium">Discount %:</span>
-                        <span className="font-semibold text-blue-900 text-sm">{feeInfo.discountPercentage}%</span>
+
+                  {/* Total Paid */}
+                  <div className="flex justify-between items-center py-2 px-3 bg-green-50 rounded-lg border border-green-200">
+                    <span className="text-green-700 text-sm font-medium">Total Paid:</span>
+                    <span className="font-bold text-green-900 text-base">{formatCurrency(student?.totalPaid || 0)}</span>
+                  </div>
+
+                  {/* Remaining Balance */}
+                  {(() => {
+                    const fullFee = student?.customFee || feeInfo.originalFee;
+                    const totalPaid = student?.totalPaid || 0;
+                    const remaining = Math.max(0, fullFee - totalPaid);
+                    const isFullyPaid = remaining === 0;
+
+                    return (
+                      <div
+                        className={`flex justify-between items-center py-2 px-3 rounded-lg border-2 ${
+                          isFullyPaid
+                            ? "bg-green-100 border-green-300"
+                            : "bg-orange-50 border-orange-300"
+                        }`}
+                      >
+                        <span
+                          className={`text-sm font-medium ${
+                            isFullyPaid
+                              ? "text-green-700"
+                              : "text-orange-700"
+                          }`}
+                        >
+                          {isFullyPaid ? "✓ Fully Paid" : "Remaining Balance:"}
+                        </span>
+                        <span
+                          className={`font-bold text-base ${
+                            isFullyPaid
+                              ? "text-green-900"
+                              : "text-orange-900"
+                          }`}
+                        >
+                          {formatCurrency(remaining)}
+                        </span>
                       </div>
-                      <div className="flex justify-between items-center py-2 px-2 bg-orange-50 rounded">
-                        <span className="text-orange-700 text-sm font-medium">Reduced Fees:</span>
-                        <span className="font-semibold text-orange-900 text-sm">-{formatCurrency((student?.customFee || feeInfo.originalFee) * feeInfo.discountPercentage / 100)}</span>
+                    );
+                  })()}
+
+                  {/* Payment Progress Bar */}
+                  {(() => {
+                    const fullFee = student?.customFee || feeInfo.originalFee;
+                    const totalPaid = student?.totalPaid || 0;
+                    const progress = Math.min((totalPaid / fullFee) * 100, 100);
+
+                    return (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-600">Payment Progress</span>
+                          <span className="font-semibold text-gray-900">
+                            {Math.round(progress)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center py-2 px-2 bg-green-50 rounded border-2 border-green-200">
-                        <span className="text-green-700 text-sm font-bold">Payable:</span>
-                        <span className="font-bold text-green-900 text-lg">{formatCurrency((student?.customFee || feeInfo.originalFee) - ((student?.customFee || feeInfo.originalFee) * feeInfo.discountPercentage / 100))}</span>
-                      </div>
-                    </>
-                  )}
-                  
-                  {feeInfo.discountPercentage === 0 && (
-                    <>
-                      <div className="flex justify-between items-center py-2 px-2 bg-gray-100 rounded">
-                        <span className="text-gray-700 text-sm font-medium">Discount %:</span>
-                        <span className="font-semibold text-gray-900 text-sm">0%</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 px-2 bg-green-50 rounded border-2 border-green-200">
-                        <span className="text-green-700 text-sm font-bold">Payable:</span>
-                        <span className="font-bold text-green-900 text-lg">{formatCurrency(student?.customFee || feeInfo.originalFee)}</span>
-                      </div>
-                    </>
-                  )}
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -910,225 +1005,199 @@ export default function StudentProfilePage() {
         </div>
       </div>
 
-    {/* Edit Fees Modal */}
-    {isEditingFees && (
-      <>
-        <div
-          className="fixed inset-0 bg-black/60 z-40 cursor-pointer"
-          onClick={handleCancelFeeEdit}
-        />
-        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl z-50 max-w-sm w-full mx-4 border border-gray-300">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-            <div className="flex items-center gap-3">
-              <DollarSign className="h-5 w-5 text-gray-700" />
-              <h2 className="text-xl font-semibold text-gray-900">Edit Fees</h2>
-            </div>
-            <button
-              onClick={handleCancelFeeEdit}
-              className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
-            >
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
-
-          <div className="p-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700">Enter Full Fees Amount</label>
-                <input
-                  type="number"
-                  value={editingBaseFee}
-                  onChange={(e) => setEditingBaseFee(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter fee amount"
-                  min="0"
-                />
-              </div>
-
-              {editingBaseFee && !isNaN(Number(editingBaseFee)) && Number(editingBaseFee) > 0 && (
-                <div className="mt-6 space-y-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Fee Breakdown:</h3>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Full Fees:</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(Number(editingBaseFee))}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Discount %:</span>
-                    <span className="font-semibold text-gray-900">{feeInfo.discountPercentage}%</span>
-                  </div>
-
-                  {feeInfo.discountPercentage > 0 && (
-                    <>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-600">Reduced Fees:</span>
-                        <span className="font-semibold text-blue-600">-{formatCurrency(Number(editingBaseFee) * feeInfo.discountPercentage / 100)}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm border-t border-gray-300 pt-2 mt-2">
-                        <span className="font-bold text-gray-900">Payable:</span>
-                        <span className="font-bold text-green-700 text-base">{formatCurrency(Number(editingBaseFee) - (Number(editingBaseFee) * feeInfo.discountPercentage / 100))}</span>
-                      </div>
-                    </>
-                  )}
-
-                  {feeInfo.discountPercentage === 0 && (
-                    <div className="flex justify-between items-center text-sm border-t border-gray-300 pt-2 mt-2">
-                      <span className="font-bold text-gray-900">Payable:</span>
-                      <span className="font-bold text-green-700 text-base">{formatCurrency(Number(editingBaseFee))}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50">
-            <Button
-              onClick={handleSaveFees}
-              disabled={isEditingFeesSaving || !editingBaseFee || isNaN(Number(editingBaseFee)) || Number(editingBaseFee) <= 0}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isEditingFeesSaving ? "Saving..." : "Save Fees"}
-            </Button>
-            <Button
-              onClick={handleCancelFeeEdit}
-              variant="outline"
-              className="flex-1 border-gray-300 cursor-pointer"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </>
-    )}
-
-    {/* Edit Profile Slider */}
-    {isEditSliderOpen && (
-      <>
-        {/* Subtle Backdrop */}
-        <div
-          className="fixed inset-0 bg-black/60 z-40"
-          onClick={handleCancelEdit}
-        />
-        
-        {/* Slider */}
-        <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-xl z-50 border-l border-gray-200">
-          <div className="flex flex-col h-full">
-            {/* Header */}
+      {/* Edit Fees Modal */}
+      {isEditingFees && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-40 cursor-pointer"
+            onClick={handleCancelFeeEdit}
+          />
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl z-50 max-w-sm w-full mx-4 border border-gray-300">
             <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
               <div className="flex items-center gap-3">
-                <Edit2 className="h-5 w-5 text-gray-700" />
-                <h2 className="text-xl font-semibold text-gray-900">Edit Profile</h2>
+                <DollarSign className="h-5 w-5 text-gray-700" />
+                <h2 className="text-xl font-semibold text-gray-900">Edit Fees</h2>
               </div>
               <button
-                onClick={handleCancelEdit}
+                onClick={handleCancelFeeEdit}
                 className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
-            {/* Form Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-6">
+            <div className="p-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Full Name</label>
+                  <label className="text-sm font-semibold text-gray-700">Full Fees Amount (After Discount)</label>
                   <input
-                    type="text"
-                    value={editData?.name || ""}
-                    onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter full name"
+                    type="number"
+                    value={editingBaseFee}
+                    onChange={(e) => setEditingBaseFee(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter full fees amount"
+                    min="0"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Enter the final fee amount after applying any discounts</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    value={editData?.email || ""}
-                    onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter email address"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    type="tel"
-                    value={editData?.phone || ""}
-                    onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter phone number"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Gender</label>
-                  <select
-                    value={editData?.gender || ""}
-                    onChange={(e) => setEditData({ ...editData, gender: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">City</label>
-                  <input
-                    type="text"
-                    value={editData?.city || ""}
-                    onChange={(e) => setEditData({ ...editData, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter city"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={editData?.dob || ""}
-                    onChange={(e) => setEditData({ ...editData, dob: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                {editingBaseFee && !isNaN(Number(editingBaseFee)) && Number(editingBaseFee) > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm font-semibold text-blue-900">
+                      ₹{Number(editingBaseFee).toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-gray-200 p-6 bg-gray-50">
-              <div className="flex gap-3">
-                <Button 
-                  onClick={handleSaveProfile} 
-                  disabled={isSaving} 
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-                <Button 
-                  onClick={handleCancelEdit} 
-                  variant="outline" 
-                  className="flex-1 border-gray-300 cursor-pointer"
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-              </div>
+            <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <Button
+                onClick={handleSaveFees}
+                disabled={isEditingFeesSaving || !editingBaseFee || isNaN(Number(editingBaseFee)) || Number(editingBaseFee) <= 0}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isEditingFeesSaving ? "Saving..." : "Save Fees"}
+              </Button>
+              <Button
+                onClick={handleCancelFeeEdit}
+                variant="outline"
+                className="flex-1 border-gray-300 cursor-pointer"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
             </div>
           </div>
+        </>
+      )}
+
+      {/* Edit Profile Slider */}
+      <Sheet open={isEditSliderOpen} onOpenChange={setIsEditSliderOpen}>
+  <SheetContent className="sm:max-w-md flex flex-col p-0">
+    <SheetHeader className="px-6 pt-6 pb-4 border-b">
+      <SheetTitle className="flex items-center gap-2">
+        <Edit2 className="h-5 w-5" />
+        Edit Profile
+      </SheetTitle>
+      <SheetDescription>
+        Update your personal information here. Click save when you're done.
+      </SheetDescription>
+    </SheetHeader>
+
+    <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="grid gap-6">
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">Full Name</label>
+          <input
+            type="text"
+            value={editData?.name || ""}
+            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter full name"
+          />
         </div>
-      </>
-    )}
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            value={editData?.email || ""}
+            onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter email address"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">Phone</label>
+          <input
+            type="tel"
+            value={editData?.phone || ""}
+            onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter phone number"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">Gender</label>
+          <select
+            value={editData?.gender || ""}
+            onChange={(e) => setEditData({ ...editData, gender: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">City</label>
+          <input
+            type="text"
+            value={editData?.city || ""}
+            onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Enter city"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">Date of Birth</label>
+          <input
+            type="date"
+            value={editData?.dob || ""}
+            onChange={(e) => setEditData({ ...editData, dob: e.target.value })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+      </div>
+    </div>
+
+    <SheetFooter className="px-6 py-6 border-t bg-gray-50 mt-auto">
+      <div className="flex gap-3 w-full">
+        <Button 
+          onClick={handleSaveProfile} 
+          disabled={isSaving} 
+          className="flex-1 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? "Saving..." : "Save Changes"}
+        </Button>
+        <SheetClose asChild>
+          <Button 
+            variant="outline" 
+            className="flex-1 border-gray-300 cursor-pointer"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+        </SheetClose>
+      </div>
+    </SheetFooter>
+  </SheetContent>
+</Sheet>
+
+    {/* Payment Modal */}
+    <PaymentModal
+      open={isPaymentModalOpen}
+      setOpen={setIsPaymentModalOpen}
+      student={student!}
+      onPaymentSuccess={handlePaymentSuccess}
+      userName={user?.name || "Admin"}
+    />
+
+    {/* Payment History Modal */}
+    <PaymentHistoryModal
+      open={isPaymentHistoryOpen}
+      setOpen={setIsPaymentHistoryOpen}
+      student={student!}
+      discountPercentage={feeInfo.discountPercentage}
+    />
     </div>
   );
 }
