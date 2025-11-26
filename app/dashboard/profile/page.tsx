@@ -111,6 +111,7 @@ function StudentProfilePageContent() {
   // Fee editing states
   const [isEditingFees, setIsEditingFees] = useState(false);
   const [editingBaseFee, setEditingBaseFee] = useState<string>("");
+  const [editingNextSemesterFee, setEditingNextSemesterFee] = useState<string>("");
   const [isEditingFeesSaving, setIsEditingFeesSaving] = useState(false);
   
   // Payment states
@@ -248,6 +249,7 @@ function StudentProfilePageContent() {
 
   const handleEditFees = () => {
     setEditingBaseFee((student?.customFee || feeInfo.originalFee).toString());
+    setEditingNextSemesterFee("");
     setIsEditingFees(true);
   };
 
@@ -255,17 +257,27 @@ function StudentProfilePageContent() {
     if (!student || !editingBaseFee) return;
 
     const baseFee = Number(editingBaseFee);
+    const nextSemesterFee = editingNextSemesterFee ? Number(editingNextSemesterFee) : 0;
+
     if (isNaN(baseFee) || baseFee <= 0) {
-      toast.error("Please enter a valid fee amount");
+      toast.error("Please enter a valid current fee amount");
+      return;
+    }
+
+    if (editingNextSemesterFee && (isNaN(nextSemesterFee) || nextSemesterFee < 0)) {
+      toast.error("Please enter a valid next semester fee amount");
       return;
     }
 
     setIsEditingFeesSaving(true);
     try {
+      // Calculate new total fee by adding next semester fees to current fees
+      const totalNewFee = baseFee + nextSemesterFee;
+
       const res = await fetch(`/api/students/${student._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customFee: baseFee }),
+        body: JSON.stringify({ customFee: totalNewFee }),
       });
 
       const data = await res.json();
@@ -274,7 +286,12 @@ function StudentProfilePageContent() {
         setStudent(data.student);
         setIsEditingFees(false);
         setEditingBaseFee("");
-        toast.success("Fee updated successfully");
+        setEditingNextSemesterFee("");
+        if (nextSemesterFee > 0) {
+          toast.success(`Fee updated! Added ₹${nextSemesterFee.toLocaleString('en-IN')} for next semester. New total: ₹${totalNewFee.toLocaleString('en-IN')}`);
+        } else {
+          toast.success("Fee updated successfully");
+        }
       } else {
         toast.error(data.message || "Failed to update fee");
       }
@@ -289,6 +306,7 @@ function StudentProfilePageContent() {
   const handleCancelFeeEdit = () => {
     setIsEditingFees(false);
     setEditingBaseFee("");
+    setEditingNextSemesterFee("");
   };
 
   const handlePaymentSuccess = () => {
@@ -1029,24 +1047,56 @@ function StudentProfilePageContent() {
 
             <div className="p-6">
               <div className="space-y-4">
+                {/* Current Fees Section */}
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">Full Fees Amount (After Discount)</label>
+                  <label className="text-sm font-semibold text-gray-700">Current Total Fees</label>
                   <input
                     type="number"
                     value={editingBaseFee}
                     onChange={(e) => setEditingBaseFee(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter full fees amount"
+                    placeholder="Enter current fees amount"
                     min="0"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Enter the final fee amount after applying any discounts</p>
+                  <p className="text-xs text-gray-500 mt-1">Enter the current fee amount after applying any discounts</p>
                 </div>
 
+                {/* Divider */}
+                <div className="border-t border-gray-200 pt-4 mt-4" />
+
+                {/* Next Semester Fees Section */}
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-gray-700">Next Semester Fees (Optional)</label>
+                  <input
+                    type="number"
+                    value={editingNextSemesterFee}
+                    onChange={(e) => setEditingNextSemesterFee(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter next semester fees (optional)"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Add next semester fees. This will be automatically added to the current fees.</p>
+                </div>
+
+                {/* Fee Summary */}
                 {editingBaseFee && !isNaN(Number(editingBaseFee)) && Number(editingBaseFee) > 0 && (
-                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm font-semibold text-blue-900">
-                      ₹{Number(editingBaseFee).toLocaleString('en-IN')}
-                    </p>
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-700">Current Fees:</span>
+                      <span className="font-semibold text-blue-900">₹{Number(editingBaseFee).toLocaleString('en-IN')}</span>
+                    </div>
+                    {editingNextSemesterFee && !isNaN(Number(editingNextSemesterFee)) && Number(editingNextSemesterFee) > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-700">Next Semester Fees:</span>
+                          <span className="font-semibold text-green-600">+ ₹{Number(editingNextSemesterFee).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="border-t border-blue-200 pt-3 flex justify-between">
+                          <span className="text-sm font-semibold text-blue-900">Total New Fees:</span>
+                          <span className="text-lg font-bold text-blue-900">₹{(Number(editingBaseFee) + Number(editingNextSemesterFee)).toLocaleString('en-IN')}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
