@@ -33,12 +33,7 @@ export default function HomePage() {
         >
           Login
         </button>
-        {/* <button
-          onClick={() => router.push("/register")}
-          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition cursor-pointer"
-        >
-          Register
-        </button> */}
+        
       </div>
     </div>
   );
