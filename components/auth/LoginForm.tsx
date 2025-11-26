@@ -20,6 +20,7 @@ export default function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // Ensure cookie is set
       });
 
       const data = await res.json();
@@ -30,13 +31,14 @@ export default function LoginForm() {
         return;
       }
 
-      // Success → Redirect to dashboard
-
-
-router.push("/dashboard/students");
-useEffect(() => {
-  router.refresh();
-}, []);
+      // Success → Force a full refresh and redirect
+      // This clears the old state and fetches new auth data
+      router.refresh();
+      
+      // Small delay to ensure auth context updates
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 100);
 
     } catch (err: any) {
       setError("Something went wrong");

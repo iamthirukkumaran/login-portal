@@ -263,40 +263,46 @@ This guide shows the complete file structure with a 4-line purpose for each file
 - Wraps all dashboard child pages
 
 ### `app/dashboard/page.tsx` 📖 PAGE
-- Dashboard home/overview page
-- Shows welcome message and quick stats
-- Recent students/teachers activity
-- Links to main sections
+- Initial dashboard redirect logic based on user role
+- Students → redirects to `/dashboard/profile`
+- Teachers → redirects to `/dashboard/students`
+- Superadmins → redirects to `/dashboard/teachers`
+- Shows loading state while auth is being verified
 
 ### `app/dashboard/students/page.tsx` 📖 PAGE
-- Students management page
-- Displays StudentTable component
+- Students management page (teachers & superadmin only)
+- Displays StudentTable component with all students
 - Add Student button opens AddStudentSlider
-- Search and filter functionality
+- **AUTO-REDIRECT:** Students are redirected to `/dashboard/profile`
+- Prevents students from accessing student management
 
 ### `app/dashboard/students/[id]/page.tsx` 📖 PAGE
-- Individual student profile page
-- Shows StudentDetailsCard
-- Displays StudentMarksCard
+- Individual student profile page (admin view)
+- Shows StudentDetailsCard with full details
+- Displays StudentMarksCard with semester marks
 - Fee management and payment buttons
+- Teachers/admins can edit student records
 
 ### `app/dashboard/profile/page.tsx` 📖 PAGE
-- Current logged-in user's profile
-- Edit personal information
-- View and manage own fees
-- Payment history and record payment
+- Current logged-in user's profile (primary student view)
+- Students view and edit their own information
+- Manage fees (current + next semester fees)
+- Payment history and record new payments
+- Cannot be accessed by other roles
 
 ### `app/dashboard/teachers/page.tsx` 📖 PAGE
-- Teachers management page
-- Displays TeacherTable component
+- Teachers management page (superadmin only)
+- Displays TeacherTable component with all teachers
 - Add Teacher button opens AddTeacherSlider
-- Search and filter functionality
+- **AUTO-REDIRECT:** Students are redirected to `/dashboard/profile`
+- Prevents students from accessing teacher management
 
 ### `app/dashboard/teachers/[id]/page.tsx` 📖 PAGE
-- Individual teacher profile page
-- Shows teacher details and assignments
-- Edit teacher information
-- View classes and schedule
+- Individual teacher profile page (admin view)
+- Shows teacher details and subject assignments
+- Edit teacher information and status
+- View assigned classes and schedule
+- Only accessible to superadmins
 
 ---
 
@@ -422,22 +428,41 @@ This guide shows the complete file structure with a 4-line purpose for each file
 
 ## 🔄 DATA FLOW SUMMARY
 
-### User Registration Flow:
-`LoginForm.tsx` → `POST /api/auth/register` → `UserModel.ts` → MongoDB → Login
+### Complete Login & Redirect Flow:
+1. User visits root URL (`/`) → `app/page.tsx`
+2. If authenticated → Redirects to dashboard
+3. If not authenticated → Shows login link
+4. User enters credentials → `LoginForm.tsx`
+5. Form submits → `POST /api/auth/login`
+6. API validates & returns JWT token
+7. AuthContext stores token and user data
+8. User navigates to/refreshed on `/dashboard`
+9. **ROLE-BASED REDIRECT** (in `dashboard/page.tsx`):
+   - ✅ **STUDENT** → Redirects to `/dashboard/profile` (DIRECT - no students list)
+   - ✅ **TEACHER** → Redirects to `/dashboard/students`
+   - ✅ **SUPERADMIN** → Redirects to `/dashboard/teachers`
+10. If student tries accessing `/dashboard/students` or `/dashboard/teachers`:
+    - **AUTO-REDIRECT** → Redirects to `/dashboard/profile` (prevents unauthorized access)
+
+### Student Registration Flow:
+`LoginForm.tsx` → `POST /api/auth/register` → `UserModel.ts` → MongoDB → Auto-login
 
 ### User Login Flow:
-`LoginForm.tsx` → `POST /api/auth/login` → `jwt.ts` → `AuthContext.tsx` → Dashboard
+`LoginForm.tsx` → `POST /api/auth/login` → `jwt.ts` → `AuthContext.tsx` → Role-based redirect
 
 ### Protected Route Access:
-`middleware.ts` → Validate JWT → `useAuthGuard.ts` → Show Dashboard
+`middleware.ts` → Validate JWT → `useAuthGuard.ts` → Show Dashboard or redirect to login
 
-### Student Profile View:
-`dashboard/students/[id]/page.tsx` → `GET /api/students/[id]` → `StudentModel.ts` → Display Components
+### Student Profile View (Only for Students):
+`dashboard/profile/page.tsx` → `GET /api/student` → `StudentModel.ts` → Display own profile
 
-### Fee Payment Recording:
-`PaymentModal.tsx` → `POST /api/students/[id]/payment` → Update `totalPaid` → `PaymentHistoryModal.tsx`
+### Fee Management (Next Semester Feature):
+Student edits fees → Input current + next semester fees → `handleSaveFees()` → Calculates total (current + next) → `PUT /api/students/[id]` → Updates database → Toast shows breakdown
 
-### Semester Marks Entry:
+### Payment Recording (Student View):
+`PaymentModal.tsx` → `POST /api/students/[id]/payment` → Update `totalPaid` → `PaymentHistoryModal.tsx` → Display all transactions
+
+### Semester Marks Entry (Teacher/Admin):
 `SemesterMarksForm.tsx` → `POST /api/marks` → `MarkSchema.ts` → Display in `SemesterMarksTable.tsx`
 
 ---
@@ -449,18 +474,28 @@ This guide shows the complete file structure with a 4-line purpose for each file
 2. Create API endpoint in `app/api/`
 3. Add UI component in `components/`
 4. Integrate into page in `app/dashboard/`
+5. Test role-based access (student/teacher/admin)
 
 **For Bug Fixes:**
 1. Check error in browser console
 2. Find related file from this guide
 3. Review logic in that file
-4. Test in development locally
+4. Check if role-based redirect is affected
+5. Test in development locally
 
 **For UI Changes:**
 1. Edit component in `components/`
 2. Use Tailwind CSS for styling
 3. Test on mobile with `use-mobile.ts`
-4. Rebuild and deploy
+4. Test for role-based visibility
+5. Rebuild and deploy
+
+**For Access Control Issues:**
+1. Check user role in `AuthContext.tsx`
+2. Verify redirect logic in dashboard pages
+3. Add/update redirect in page if needed
+4. Test with different user roles
+5. Update FILE_GUIDE.md if flow changes
 
 ---
 
@@ -477,6 +512,30 @@ This guide shows the complete file structure with a 4-line purpose for each file
 
 ---
 
-**Last Updated:** November 26, 2025  
-**Project:** Student Management System  
-**Tech Stack:** Next.js 16, React 19, MongoDB Atlas, TypeScript, Tailwind CSS
+## 🆕 LATEST CHANGES (Phase 11 - Student Access Control)
+
+### What Changed:
+1. **Direct Student Redirect** - Students now skip dashboard and go straight to profile
+2. **Auto-Redirect Protection** - Students accessing restricted pages auto-redirect to profile
+3. **Next Semester Fees** - Students can add future semester fees with auto-calculation
+4. **FILE_GUIDE.md** - Complete documentation of all files and flows
+
+### Key Implementation:
+- `app/dashboard/page.tsx` - Role-based redirect (UPDATED)
+- `app/dashboard/students/page.tsx` - Added student redirect logic (NEW)
+- `app/dashboard/teachers/page.tsx` - Added student redirect logic (NEW)
+- `app/dashboard/profile/page.tsx` - Enhanced fee management (UPDATED)
+
+### User Experience:
+- **Students:** Login → Direct to profile (skip students list)
+- **Teachers:** Login → Students list page
+- **Superadmins:** Login → Teachers list page
+- **Security:** Students cannot access student/teacher management pages
+
+### Database Features:
+- Support for cumulative fee additions (current + next semester)
+- Payment history tracking with dates and methods
+- Semester marks for up to 8 semesters
+- Role-based data access in API endpoints
+
+---
