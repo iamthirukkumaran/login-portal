@@ -72,10 +72,7 @@ async function pushSuperAdmin() {
       permissions: ["all"],
     };
 
-    console.log("\n📋 Super Admin Details:");
-    console.log(`   Email: ${superAdminCredentials.email}`);
-    console.log(`   Password: ${superAdminCredentials.password}`);
-    console.log(`   Role: ${superAdminCredentials.role}`);
+
 
     // Check if super admin already exists
     const existingAdmin = await UserModel.findOne({
