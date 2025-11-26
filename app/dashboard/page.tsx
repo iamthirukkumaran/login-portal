@@ -9,14 +9,19 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && user) {
-      // Route based on role
-      if (user.role === "superadmin") {
-        router.push("/dashboard/teachers");
-      } else if (user.role === "teacher") {
-        router.push("/dashboard/students");
-      } else if (user.role === "student") {
-        router.push("/dashboard/profile");
+    if (!isLoading) {
+      if (!user) {
+        // No user, redirect to login
+        router.push("/login");
+      } else {
+        // Route based on role
+        if (user.role === "student") {
+          router.push("/dashboard/profile");
+        } else if (user.role === "superadmin") {
+          router.push("/dashboard/teachers");
+        } else if (user.role === "teacher") {
+          router.push("/dashboard/students");
+        }
       }
     }
   }, [user, isLoading, router]);
