@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash, Eye } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Student {
   _id: string;
@@ -21,6 +22,8 @@ interface StudentTableProps {
 }
 
 export default function StudentTable({ students, refresh }: StudentTableProps) {
+  const isMobile = useIsMobile();
+
   const deleteStudent = async (id: string) => {
     const res = await fetch(`/api/students/${id}`, {
       method: "DELETE",
@@ -36,29 +39,87 @@ export default function StudentTable({ students, refresh }: StudentTableProps) {
     }
   };
 
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {students.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-gray-500">
+              No students found. Add one to get started!
+            </CardContent>
+          </Card>
+        ) : (
+          students.map((s) => (
+            <Card key={s._id} className="border-l-4 border-l-blue-600">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-base">{s.name}</h3>
+                    <p className="text-sm text-gray-600">{s.email}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link href={`/dashboard/profile?id=${s._id}`}>
+                      <Button size="sm" variant="outline" className="cursor-pointer p-1 h-8 w-8">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => deleteStudent(s._id)}
+                      className="cursor-pointer p-1 h-8 w-8"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t">
+                  <div>
+                    <span className="text-gray-600">Phone:</span>
+                    <p className="font-medium">{s.phone || "-"}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">City:</span>
+                    <p className="font-medium">{s.city || "-"}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">12th Marks:</span>
+                    <p className="font-medium">{s.mark12 || "-"}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    );
+  }
+
+  // Desktop Table View
   return (
     <Card>
       <CardContent className="p-4">
-        <table className="w-full border">
+        <table className="w-full">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="p-3 text-left">Name</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left">Phone</th>
-              <th className="p-3 text-left">City</th>
-              <th className="p-3 text-left">12th Marks</th>
-              <th className="p-3 text-center">Actions</th>
+            <tr className="bg-gray-50 border-b">
+              <th className="p-3 text-left text-sm font-semibold">Name</th>
+              <th className="p-3 text-left text-sm font-semibold">Email</th>
+              <th className="p-3 text-left text-sm font-semibold">Phone</th>
+              <th className="p-3 text-left text-sm font-semibold">City</th>
+              <th className="p-3 text-left text-sm font-semibold">12th Marks</th>
+              <th className="p-3 text-center text-sm font-semibold">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {students.map((s) => (
-              <tr key={s._id} className="border-b">
-                <td className="p-3">{s.name}</td>
-                <td className="p-3">{s.email}</td>
-                <td className="p-3">{s.phone || "-"}</td>
-                <td className="p-3">{s.city || "-"}</td>
-                <td className="p-3">{s.mark12 || "-"}</td>
+              <tr key={s._id} className="border-b hover:bg-gray-50 transition">
+                <td className="p-3 text-sm">{s.name}</td>
+                <td className="p-3 text-sm">{s.email}</td>
+                <td className="p-3 text-sm">{s.phone || "-"}</td>
+                <td className="p-3 text-sm">{s.city || "-"}</td>
+                <td className="p-3 text-sm">{s.mark12 || "-"}</td>
                 <td className="p-3 text-center flex justify-center gap-2">
                   <Link href={`/dashboard/profile?id=${s._id}`}>
                     <Button size="sm" variant="outline" title="View Profile" className="cursor-pointer">
