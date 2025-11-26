@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import TeacherTable from "@/components/teachers/TeacherTable";
 import AddTeacherSlider from "@/components/teachers/AddTeacherSlider";
 import { useAuth } from "@/context/AuthContext";
 
 export default function TeachersPage() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [teachers, setTeachers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+
+  // Redirect students to their profile
+  useEffect(() => {
+    if (!isLoading && user && user.role === "student") {
+      router.push("/dashboard/profile");
+    }
+  }, [user, isLoading, router]);
 
   // ------------------------------
   // Fetch Teachers

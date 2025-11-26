@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import StudentTable from "@/components/students/StudentTable";
 import AddStudentSlider from "@/components/students/AddStudentSlider";
 import { useAuth } from "@/context/AuthContext";
@@ -8,6 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function StudentsPage() {
   const { user, isLoading } = useAuth();
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [students, setStudents] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -30,6 +32,13 @@ export default function StudentsPage() {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  // Redirect students to their profile
+  useEffect(() => {
+    if (!isLoading && user && user.role === "student") {
+      router.push("/dashboard/profile");
+    }
+  }, [user, isLoading, router]);
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-screen">
