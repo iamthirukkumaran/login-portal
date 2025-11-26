@@ -9,7 +9,10 @@ import { useAuth } from "@/context/AuthContext";
 export default function TeachersPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [filtered, setFiltered] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
 
   // Redirect students to their profile
@@ -19,9 +22,7 @@ export default function TeachersPage() {
     }
   }, [user, isLoading, router]);
 
-  // ------------------------------
   // Fetch Teachers
-  // ------------------------------
   const fetchTeachers = async () => {
     try {
       const res = await fetch("/api/teachers", {
@@ -31,6 +32,7 @@ export default function TeachersPage() {
 
       const data = await res.json();
       setTeachers(data.teachers || []);
+      setFiltered(data.teachers || []);
     } catch (error) {
       console.log("Error fetching teachers:", error);
     }
@@ -40,9 +42,25 @@ export default function TeachersPage() {
     fetchTeachers();
   }, []);
 
+  // Live search (filter teachers)
+  useEffect(() => {
+    if (!search.trim()) {
+      setFiltered(teachers);
+      return;
+    }
+
+    const s = search.toLowerCase();
+
+    const matched = teachers.filter((teacher) =>
+      teacher.name.toLowerCase().includes(s)
+    );
+
+    setFiltered(matched);
+  }, [search, teachers]);
+
   if (isLoading) return <p>Loading...</p>;
 
-  // Only superadmin & teachers can view this page
+  // Only superadmin & teachers can access this page
   if (user && user.role !== "superadmin" && user.role !== "teacher") {
     return (
       <p className="text-center text-red-600 mt-10 text-xl">
@@ -52,12 +70,11 @@ export default function TeachersPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <h1 className="text-3xl font-semibold">Teachers</h1>
 
-        {/* Only superadmin & teacher can add teachers */}
         <button
           onClick={() => setOpen(true)}
           className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 cursor-pointer"
@@ -66,18 +83,20 @@ export default function TeachersPage() {
         </button>
       </div>
 
-      {/* Teacher Table */}
-      <TeacherTable
-        teachers={teachers}
-        refresh={fetchTeachers}
+      {/* 🔍 Search Bar */}
+      <input
+        type="text"
+        placeholder="Search teacher by name..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
       />
 
-      {/* Create Teacher Drawer */}
-      <AddTeacherSlider
-        open={open}
-        setOpen={setOpen}
-        refresh={fetchTeachers}
-      />
+      {/* Teacher Table */}
+      <TeacherTable teachers={filtered} refresh={fetchTeachers} />
+
+      {/* Add Teacher Drawer */}
+      <AddTeacherSlider open={open} setOpen={setOpen} refresh={fetchTeachers} />
     </div>
   );
 }
